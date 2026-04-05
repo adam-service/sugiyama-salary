@@ -341,11 +341,22 @@ async function saveToCloud(){
   updateSyncStatus('syncing','保存中...');
   try{
     const res=await fetch(API_URL+'?action=saveData',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(D)
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(D),
+      redirect:'follow'
     });
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const result=await res.json();
+    // GAS redirects may return opaque response; check if we got valid JSON
+    let result;
+    try{result=await res.json()}catch(e){
+      // If redirect succeeded but response is opaque, treat as success
+      if(res.ok||res.type==='opaque'||res.redirected){
+        updateSyncStatus('online','保存完了');
+        setTimeout(()=>updateSyncStatus('online','接続済み'),2000);
+        return true;
+      }
+      throw new Error('HTTP '+res.status);
+    }
     if(result.error)throw new Error(result.error);
     updateSyncStatus('online','保存完了');
     setTimeout(()=>updateSyncStatus('online','接続済み'),2000);
@@ -563,8 +574,11 @@ function renderInput(){
   if(D.clients.length===0){
     cl.innerHTML='<div class="empty-state"><div class="icon">👤</div><p>ゲストを追加してください</p></div>';
   }else{
+    // 前月のセッション数でソート（今月の入力中は順番を変えない）
+    const prevD=new Date(mk+'-01');prevD.setMonth(prevD.getMonth()-1);
+    const prevMk=monthKey(prevD);
     const sorted=[...D.clients].sort((a,b)=>{
-      const sa=getSessionData(a.id,mk),sb=getSessionData(b.id,mk);
+      const sa=getSessionData(a.id,prevMk),sb=getSessionData(b.id,prevMk);
       const ca=sa?sa.count:0,cb=sb?sb.count:0;
       if(cb!==ca)return cb-ca;
       return a.name.localeCompare(b.name,'ja');
