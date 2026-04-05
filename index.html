@@ -294,6 +294,9 @@ let D,isMaster=false,currentMonth,pinBuffer='',loginRole='trainer';
 
 function migrateData(d){
   if(!d.config)d.config=defaultData().config;
+  // PINが数値として保存されゼロ落ちした場合の復元
+  if(d.config.masterPin!=null)d.config.masterPin=String(d.config.masterPin).padStart(4,'0');
+  if(d.config.trainerPin!=null)d.config.trainerPin=String(d.config.trainerPin).padStart(4,'0');
   if(!d.config.roomFees)d.config.roomFees={adam_aden:8000,sub:5000};
   if(d.config.taxDeductionRate===undefined)d.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;
   // Auto-update rate if taxRateAuto is enabled (or not set = legacy)
