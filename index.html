@@ -167,34 +167,47 @@ label{display:block;font-size:12px;font-weight:600;color:var(--text-light);margi
 .loading-overlay.show{opacity:1;pointer-events:all}
 /* Invoice template (hidden, used for PDF rendering) */
 #invoiceContainer{position:fixed;left:-9999px;top:0;z-index:-1}
-#invoicePage{width:794px;height:1123px;background:#fff;font-family:'Hiragino Mincho ProN','Yu Mincho','MS PMincho',serif;color:#1a1a1a;display:flex;flex-direction:column}
+#invoicePage{width:794px;min-height:1123px;background:#fff;font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;color:#1a1a1a;padding:56px 60px 40px}
 #invoicePage *{margin:0;padding:0;box-sizing:border-box}
-.inv-top{flex:0 0 auto;padding:80px 72px 0}
-.inv-middle{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;padding:0 72px}
-.inv-bottom{flex:0 0 auto;padding:0 72px 72px}
-.inv-title{font-size:32px;font-weight:700;text-align:center;letter-spacing:12px;margin-bottom:16px}
-.inv-title-line{width:100%;height:1px;background:#333;margin-bottom:2px}
-.inv-title-line.double{margin-bottom:40px}
-.inv-date{text-align:right;font-size:13px;margin-bottom:36px}
-.inv-to{margin-bottom:0}
-.inv-to .company{font-size:20px;font-weight:700;border-bottom:1px solid #333;display:inline-block;padding-bottom:3px}
-.inv-to .address{font-size:13px;color:#444;margin-bottom:4px;line-height:1.6}
-.inv-to .suffix{font-size:15px;margin-left:6px}
-.inv-amount-box{border:2px solid #222;padding:20px 32px;text-align:center;margin-bottom:36px}
-.inv-amount-box .label{font-size:14px;margin-bottom:6px;letter-spacing:2px}
-.inv-amount-box .amount{font-size:36px;font-weight:700;letter-spacing:3px}
-.inv-desc{font-size:14px;margin-bottom:20px;line-height:1.6}
-.inv-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px}
-.inv-table th{background:#f0f0ec;border:1px solid #aaa;padding:10px 14px;font-weight:700;text-align:center}
-.inv-table td{border:1px solid #aaa;padding:12px 14px}
-.inv-table td.left{text-align:left}
-.inv-table td.right{text-align:right}
-.inv-table td.center{text-align:center}
-.inv-table .total-row td{background:#f0f0ec;font-weight:700;font-size:15px}
-.inv-note{font-size:11px;color:#666;line-height:1.6}
-.inv-from-block{display:flex;justify-content:flex-end}
-.inv-from{text-align:right;font-size:13px;line-height:2}
-.inv-from .name{font-size:20px;font-weight:700;margin-bottom:4px}
+.inv-title{font-size:26px;font-weight:700;text-align:center;letter-spacing:6px;padding-bottom:10px;border-bottom:3px double #222;margin-bottom:32px}
+.inv-header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px}
+.inv-to{flex:1}
+.inv-to .company{font-size:20px;font-weight:700}
+.inv-to .suffix{font-size:14px}
+.inv-meta{text-align:right;font-size:12px;line-height:2}
+.inv-meta .meta-label{color:#666;margin-right:12px}
+.inv-from-block{display:flex;justify-content:flex-end;margin-bottom:24px}
+.inv-from{text-align:right;font-size:12px;line-height:1.8}
+.inv-from .name{font-size:18px;font-weight:700;margin-bottom:2px}
+.inv-subject{margin-bottom:20px}
+.inv-subject .label{font-size:12px;font-weight:700;color:#666;margin-bottom:2px}
+.inv-subject .value{font-size:15px;font-weight:700}
+.inv-summary-table{width:100%;border-collapse:collapse;margin-bottom:6px;font-size:13px}
+.inv-summary-table th{background:#222;color:#fff;padding:8px 14px;font-weight:600;text-align:center;border:1px solid #222}
+.inv-summary-table td{border:1px solid #aaa;padding:10px 14px;text-align:right}
+.inv-summary-table .total-amount{font-size:22px;font-weight:800;color:#c0392b}
+.inv-bank-row{display:flex;border:1px solid #aaa;border-top:none;font-size:12px;margin-bottom:28px}
+.inv-bank-row .cell{padding:8px 14px;border-right:1px solid #aaa}
+.inv-bank-row .cell:last-child{border-right:none;flex:1}
+.inv-bank-row .cell-label{background:#f5f5f0;font-weight:700;min-width:80px}
+.inv-detail-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px}
+.inv-detail-table th{background:#222;color:#fff;padding:8px 12px;font-weight:600;text-align:center;border:1px solid #222}
+.inv-detail-table td{border:1px solid #aaa;padding:10px 12px}
+.inv-detail-table td.left{text-align:left}
+.inv-detail-table td.right{text-align:right}
+.inv-detail-table td.center{text-align:center}
+.inv-detail-table .empty-row td{height:28px}
+.inv-tax-box{display:flex;justify-content:flex-end;margin-bottom:24px}
+.inv-tax-inner{border:1px solid #aaa;font-size:12px}
+.inv-tax-inner .tax-row{display:flex}
+.inv-tax-inner .tax-label{padding:6px 14px;background:#f5f5f0;font-weight:700;min-width:100px;border-bottom:1px solid #aaa;border-right:1px solid #aaa}
+.inv-tax-inner .tax-label-sub{padding:4px 14px;background:#f5f5f0;font-size:11px;color:#666;min-width:100px;border-bottom:1px solid #aaa;border-right:1px solid #aaa}
+.inv-tax-inner .tax-val{padding:6px 14px;text-align:right;min-width:120px;border-bottom:1px solid #aaa}
+.inv-tax-inner .tax-val-sub{padding:4px 14px;text-align:right;min-width:120px;font-size:11px;color:#666;border-bottom:1px solid #aaa}
+.inv-tax-inner .tax-row:last-child .tax-label,.inv-tax-inner .tax-row:last-child .tax-label-sub,.inv-tax-inner .tax-row:last-child .tax-val,.inv-tax-inner .tax-row:last-child .tax-val-sub{border-bottom:none}
+.inv-remarks{border:1px solid #aaa;padding:10px 14px;min-height:48px;font-size:12px;color:#666;margin-bottom:16px}
+.inv-remarks .remarks-label{font-weight:700;color:#222;margin-bottom:4px}
+.inv-footer{text-align:center;font-size:11px;color:#aaa;margin-top:auto;padding-top:12px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -962,44 +975,92 @@ function generateInvoice(){
   const calc=calcMonth(mk);
   const[y,m]=mk.split('-');
   const today=new Date();
-  const dateStr=today.getFullYear()+'年'+(today.getMonth()+1)+'月'+today.getDate()+'日';
-  const periodLabel=parseInt(y)+'年'+parseInt(m)+'月';
+  const dateStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const periodLabel=parseInt(m)+'月';
+  const subjectLabel=periodLabel+'分ご請求書';
+
+  // Build detail rows
+  const adamDetails=calc.details.filter(d=>d.client.type==='adam');
+  const selfDetails=calc.details.filter(d=>d.client.type==='self');
+  let detailRows='';
+  adamDetails.forEach(d=>{
+    const price=d.client.sessionPrice||0;
+    const netPrice=price-d.roomFee;
+    detailRows+=`<tr><td class="left">${esc(d.client.name)} セッション（ADAM経由）</td><td class="center">${d.count}</td><td class="right">${netPrice.toLocaleString()}</td><td class="right">${d.reward.toLocaleString()}</td></tr>`;
+  });
+  selfDetails.forEach(d=>{
+    detailRows+=`<tr><td class="left">${esc(d.client.name)} ルーム利用料（自己経由）</td><td class="center">${d.count}</td><td class="right">${d.roomFee.toLocaleString()}</td><td class="right">-${d.cost.toLocaleString()}</td></tr>`;
+  });
+  // Add empty rows for table padding
+  const filledRows=adamDetails.length+selfDetails.length;
+  for(let i=filledRows;i<5;i++){
+    detailRows+=`<tr class="empty-row"><td class="left"></td><td></td><td></td><td></td></tr>`;
+  }
+
+  // Determine payment deadline (end of next month)
+  const invoiceDate=new Date(today);
+  const deadlineDate=new Date(parseInt(y),parseInt(m),0); // last day of the invoice month + 1
+  const nextMonthEnd=new Date(today.getFullYear(),today.getMonth()+2,0);
+  const deadlineStr=nextMonthEnd.getFullYear()+'-'+String(nextMonthEnd.getMonth()+1).padStart(2,'0')+'-'+String(nextMonthEnd.getDate()).padStart(2,'0');
 
   const page=document.getElementById('invoicePage');
   page.innerHTML=`
-    <div class="inv-top">
-      <div class="inv-title">請　求　書</div>
-      <div class="inv-title-line"></div>
-      <div class="inv-title-line double"></div>
-      <div class="inv-date">${dateStr}</div>
+    <div class="inv-title">請求書</div>
+
+    <div class="inv-header-row">
       <div class="inv-to">
-        <div class="address">〒107-0062</div>
-        <div class="address">東京都港区南青山2-9-2 ic Bldg.1F</div>
-        <div style="margin-top:4px"><span class="company">株式会社アダム</span><span class="suffix">御中</span></div>
+        <div><span class="company">株式会社アダム</span> <span class="suffix">御中</span></div>
+      </div>
+      <div class="inv-meta">
+        <div><span class="meta-label">請求日</span>${dateStr}</div>
       </div>
     </div>
-    <div class="inv-middle">
-      <div class="inv-amount-box">
-        <div class="label">ご請求金額</div>
-        <div class="amount">¥${calc.net.toLocaleString()}−</div>
+
+    <div class="inv-from-block">
+      <div class="inv-from">
+        <div class="name">杉山　佑太</div>
+        <div>〒411-0037</div>
+        <div>静岡県三島市寿町9-23 ヴィラ武智寿町201</div>
       </div>
-      <div class="inv-desc">下記の通りご請求申し上げます。</div>
-      <table class="inv-table">
-        <tr><th style="width:70%">内容</th><th style="width:30%">金額</th></tr>
-        <tr><td class="left">${periodLabel}セッション対応費</td><td class="right">¥${calc.net.toLocaleString()}</td></tr>
-        <tr class="total-row"><td class="left">合計</td><td class="right">¥${calc.net.toLocaleString()}</td></tr>
-      </table>
-      <div class="inv-note">※ お振込手数料は貴社にてご負担をお願い申し上げます。</div>
     </div>
-    <div class="inv-bottom">
-      <div class="inv-from-block">
-        <div class="inv-from">
-          <div class="name">杉山　佑太</div>
-          <div>〒411-0037</div>
-          <div>静岡県三島市寿町9-23 ヴィラ武智寿町201</div>
-          <div>TEL: 090-3686-3275</div>
-        </div>
+
+    <div class="inv-subject">
+      <span class="label">件名　</span><span class="value">${subjectLabel}</span>
+    </div>
+
+    <table class="inv-summary-table">
+      <tr>
+        <th>小計</th><th>免税事業者控除（${D.config.taxDeductionRate}%）</th><th>請求金額</th>
+      </tr>
+      <tr>
+        <td>${calc.gross.toLocaleString()}円</td>
+        <td>-${calc.taxDeduction.toLocaleString()}円</td>
+        <td class="total-amount">${calc.net.toLocaleString()}円</td>
+      </tr>
+    </table>
+
+    <div class="inv-bank-row">
+      <div class="cell cell-label">入金期日</div>
+      <div class="cell">${deadlineStr}</div>
+      <div class="cell cell-label">振込先</div>
+      <div class="cell">三菱東京UFJ銀行　三島支店（普通）3044983　杉山　佑太</div>
+    </div>
+
+    <table class="inv-detail-table">
+      <tr><th style="width:50%">摘要</th><th style="width:12%">数量</th><th style="width:18%">単価</th><th style="width:20%">明細金額</th></tr>
+      ${detailRows}
+    </table>
+
+    <div class="inv-tax-box">
+      <div class="inv-tax-inner">
+        <div class="tax-row"><div class="tax-label">内訳</div><div class="tax-val">${calc.gross.toLocaleString()}円</div></div>
+        <div class="tax-row"><div class="tax-label-sub">免税事業者控除</div><div class="tax-val-sub">-${calc.taxDeduction.toLocaleString()}円</div></div>
       </div>
+    </div>
+
+    <div class="inv-remarks">
+      <div class="remarks-label">備考</div>
+      お振込手数料は貴社にてご負担をお願い申し上げます。
     </div>
   `;
 
@@ -1014,7 +1075,6 @@ function generateInvoice(){
     const{jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const imgData=canvas.toDataURL('image/jpeg',0.95);
-    // A4 = 210 x 297 mm
     pdf.addImage(imgData,'JPEG',0,0,210,297);
     pdf.save('請求書_杉山佑太_'+mk+'.pdf');
   }).catch(err=>{
