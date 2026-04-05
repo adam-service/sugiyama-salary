@@ -262,7 +262,15 @@ label{display:block;font-size:12px;font-weight:600;color:var(--text-light);margi
 /* ===== Storage ===== */
 const SK='sugiyama_salary_v1';
 const API_URL_KEY='sugiyama_api_url';
-let API_URL=localStorage.getItem(API_URL_KEY)||'https://script.google.com/macros/s/AKfycbz5GMbM148Lj74oR_3uB9dy1Ufru3y4WQ3n5YecX_TkNZfoa_L0pxFpxKkReDOh7AHI/exec';
+const CURRENT_DEFAULT_URL='https://script.google.com/macros/s/AKfycbz5GMbM148Lj74oR_3uB9dy1Ufru3y4WQ3n5YecX_TkNZfoa_L0pxFpxKkReDOh7AHI/exec';
+/* 旧URLがlocalStorageに残っている場合は自動で新URLに移行 */
+(function(){
+  const old=localStorage.getItem(API_URL_KEY);
+  if(old&&old!==CURRENT_DEFAULT_URL&&old.includes('AKfycbyW4yAFJih16nFgjVcVzM8K8iLrtbJMQFyqZFhsQvVGf')){
+    localStorage.setItem(API_URL_KEY,CURRENT_DEFAULT_URL);
+  }
+})();
+let API_URL=localStorage.getItem(API_URL_KEY)||CURRENT_DEFAULT_URL;
 let saveTimer=null;
 const SAVE_DELAY=1500;
 
