@@ -366,8 +366,19 @@ function save(){
 async function syncFromCloud(){
   showLoading('サーバーからデータを取得中...');
   const data=await fetchFromCloud();
-  if(data){migrateData(data);D=data;saveLocal();render();alert('最新データを取得しました');}
-  else{alert('取得に失敗しました。ローカルデータを使用します。');}
+  if(data){
+    migrateData(data);
+    const cloudHasClients=data.clients&&data.clients.length>0;
+    const localHasClients=D.clients&&D.clients.length>0;
+    if(cloudHasClients){
+      D=data;saveLocal();render();alert('最新データを取得しました');
+    }else if(localHasClients){
+      alert('クラウドにゲストデータがありません。ローカルデータを維持し、クラウドへ保存します。');
+      saveToCloud();render();
+    }else{
+      D=data;saveLocal();render();alert('最新データを取得しました');
+    }
+  }else{alert('取得に失敗しました。ローカルデータを使用します。');}
   hideLoading();
 }
 function showLoading(msg){const o=document.getElementById('loadingOverlay');o.textContent=msg||'読み込み中...';o.classList.add('show')}
@@ -437,7 +448,11 @@ async function logout(){
   // クラウドから最新データを取得（バックグラウンド）
   if(API_URL){
     const data=await fetchFromCloud();
-    if(data){migrateData(data);D=data;saveLocal();}
+    if(data){
+      migrateData(data);
+      const cloudHasClients=data.clients&&data.clients.length>0;
+      if(cloudHasClients){D=data;saveLocal();}
+    }
   }
 }
 
@@ -1151,7 +1166,23 @@ document.getElementById('monthLabel').textContent=monthDisplay(currentMonth);
 (async function boot(){
   if(API_URL){
     const data=await fetchFromCloud();
-    if(data){migrateData(data);D=data;saveLocal();}
+    if(data){
+      migrateData(data);
+      // クラウドにゲストがいればクラウド優先、クラウドが空ならローカル優先
+      const cloudHasClients=data.clients&&data.clients.length>0;
+      const localHasClients=D.clients&&D.clients.length>0;
+      if(cloudHasClients){
+        // クラウドが最新 → 採用
+        D=data;saveLocal();
+      }else if(localHasClients){
+        // クラウドが空でローカルにデータあり → ローカルを維持しクラウドへ保存
+        console.log('Cloud is empty but local has data — pushing local to cloud');
+        saveToCloud();
+      }else{
+        // 両方空 → クラウドデータを採用（設定だけでも同期）
+        D=data;saveLocal();
+      }
+    }
   }else{
     // 初回はセットアップオーバーレイを表示
     document.getElementById('setupOverlay').classList.add('open');
