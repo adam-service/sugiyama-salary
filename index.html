@@ -308,6 +308,25 @@ function migrateData(d){
   if(!d.specialAllowances)d.specialAllowances={};
   if(!d.clients)d.clients=[];
   if(!d.sessions)d.sessions={};
+  // 月キーが日付文字列に壊れている場合をYYYY-MM形式に修復
+  function fixMonthKeys(obj){
+    if(!obj)return obj;
+    const fixed={};
+    Object.keys(obj).forEach(k=>{
+      let mk=k;
+      if(!/^\d{4}-\d{2}$/.test(k)){
+        const dt=new Date(k);
+        if(!isNaN(dt.getTime()))mk=dt.toISOString().slice(0,7);
+      }
+      // 同じ月キーが既にあればマージ
+      if(fixed[mk])Object.assign(fixed[mk],obj[k]);
+      else fixed[mk]=obj[k];
+    });
+    return fixed;
+  }
+  d.sessions=fixMonthKeys(d.sessions);
+  d.lockedMonths=fixMonthKeys(d.lockedMonths);
+  d.specialAllowances=fixMonthKeys(d.specialAllowances);
   d.clients.forEach(c=>{if(!c.courses)c.courses=[]});
 }
 function load(){
