@@ -266,10 +266,25 @@ let API_URL=localStorage.getItem(API_URL_KEY)||'https://script.google.com/macros
 let saveTimer=null;
 const SAVE_DELAY=1500;
 
-function defaultData(){return{
+/* ===== インボイス制度 経過措置 自動判定 ===== */
+function getInvoiceTransitionRate(dateOrMk){
+  // dateOrMk: Date object or 'YYYY-MM' string
+  let d;
+  if(typeof dateOrMk==='string'){const[y,m]=dateOrMk.split('-');d=new Date(parseInt(y),parseInt(m)-1,1)}
+  else{d=dateOrMk||new Date()}
+  const p1end=new Date(2026,8,30); // 2026-09-30: 第1期間終了
+  const p2end=new Date(2029,8,30); // 2029-09-30: 第2期間終了
+  if(d<=p1end)return{rate:2,period:'経過措置 第1期間（〜2026/9）',detail:'仕入税額控除80% → 負担20% × 消費税10% = 2%'};
+  if(d<=p2end)return{rate:5,period:'経過措置 第2期間（2026/10〜2029/9）',detail:'仕入税額控除50% → 負担50% × 消費税10% = 5%'};
+  return{rate:10,period:'経過措置終了（2029/10〜）',detail:'仕入税額控除0% → 負担100% × 消費税10% ≒ 10%'};
+}
+
+function defaultData(){
+  const tr=getInvoiceTransitionRate(new Date());
+  return{
   config:{masterPin:'0000',trainerPin:'0000',trainerName:'杉山',
     roomFees:{adam_aden:8000,sub:5000},
-    taxDeductionRate:10},
+    taxDeductionRate:tr.rate,taxRateAuto:true},
   clients:[],
   sessions:{},
   lockedMonths:{}
@@ -279,7 +294,12 @@ let D,isMaster=false,currentMonth,pinBuffer='',loginRole='trainer';
 function migrateData(d){
   if(!d.config)d.config=defaultData().config;
   if(!d.config.roomFees)d.config.roomFees={adam_aden:8000,sub:5000};
-  if(d.config.taxDeductionRate===undefined)d.config.taxDeductionRate=10;
+  if(d.config.taxDeductionRate===undefined)d.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;
+  // Auto-update rate if taxRateAuto is enabled (or not set = legacy)
+  if(d.config.taxRateAuto!==false){
+    d.config.taxRateAuto=true;
+    d.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;
+  }
   if(!d.lockedMonths)d.lockedMonths={};
   if(!d.clients)d.clients=[];
   if(!d.sessions)d.sessions={};
@@ -490,9 +510,11 @@ function calcMonth(mk){
     }
   });
   const gross=totalReward-totalCost;
-  const taxDeduction=gross>0?Math.floor(gross*D.config.taxDeductionRate/100):0;
+  // Use month-specific rate if auto, otherwise use manual setting
+  const effectiveRate=D.config.taxRateAuto!==false?getInvoiceTransitionRate(mk).rate:D.config.taxDeductionRate;
+  const taxDeduction=gross>0?Math.floor(gross*effectiveRate/100):0;
   const net=gross-taxDeduction;
-  return{totalReward,totalCost,totalSessions,activeClients,gross,taxDeduction,net,details};
+  return{totalReward,totalCost,totalSessions,activeClients,gross,taxDeduction,taxRate:effectiveRate,net,details};
 }
 
 /* ===== Render ===== */
@@ -518,7 +540,7 @@ function renderInput(){
       <div class="summary-item"><div class="label">② 自己経由 ルーム料</div><div class="value negative">¥${calc.totalCost.toLocaleString()}</div></div>
       <div class="summary-item"><div class="label">セッション数</div><div class="value">${calc.totalSessions}回</div></div>
       <div class="summary-item"><div class="label">対応ゲスト</div><div class="value">${calc.activeClients}名</div></div>
-      ${D.config.taxDeductionRate>0?`<div class="summary-item wide"><div class="label">免税控除（${D.config.taxDeductionRate}%）</div><div class="value negative">-¥${calc.taxDeduction.toLocaleString()}</div></div>`:''}
+      ${calc.taxRate>0?`<div class="summary-item wide"><div class="label">免税事業者控除（${calc.taxRate}%）</div><div class="value negative">-¥${calc.taxDeduction.toLocaleString()}</div></div>`:''}
       <div class="summary-item wide highlight"><div class="label">最終報酬額</div><div class="value" style="font-size:24px">¥${calc.net.toLocaleString()}</div></div>
     </div>`;
 
@@ -631,7 +653,7 @@ function renderReport(){
     <div class="info-row"><span class="label">① ADAM経由 報酬</span><span class="val" style="color:var(--green)">¥${calc.totalReward.toLocaleString()}</span></div>
     <div class="info-row"><span class="label">② 自己経由 ルーム料</span><span class="val" style="color:var(--red)">-¥${calc.totalCost.toLocaleString()}</span></div>
     <div class="info-row"><span class="label">差引小計</span><span class="val">¥${calc.gross.toLocaleString()}</span></div>
-    ${D.config.taxDeductionRate>0?`<div class="info-row"><span class="label">免税事業者控除（${D.config.taxDeductionRate}%）</span><span class="val" style="color:var(--red)">-¥${calc.taxDeduction.toLocaleString()}</span></div>`:''}
+    ${calc.taxRate>0?`<div class="info-row"><span class="label">免税事業者控除（${calc.taxRate}%）</span><span class="val" style="color:var(--red)">-¥${calc.taxDeduction.toLocaleString()}</span></div>`:''}
     <div class="info-row" style="padding:12px 0;font-size:16px"><span class="label" style="font-size:14px;font-weight:700">最終報酬額</span><span class="val" style="font-size:20px;color:var(--primary)">¥${calc.net.toLocaleString()}</span></div>
   </div></div>`;
 
@@ -676,9 +698,25 @@ function renderSettings(){
       <div class="form-group"><label>SUB（円/回）</label><input type="number" value="${D.config.roomFees.sub}" onchange="updateConfig('roomFee_sub',this.value)"></div>
     </div>
     <div class="card settings-section">
-      <h3>📊 免税事業者控除</h3>
-      <div class="form-group"><label>控除率（%）</label><input type="number" value="${D.config.taxDeductionRate}" min="0" max="100" onchange="updateConfig('taxRate',this.value)"></div>
-      <div class="tax-detail">※ 差引小計（①−②）がプラスの場合のみ適用されます</div>
+      <h3>📊 免税事業者控除（インボイス経過措置）</h3>
+      ${(()=>{
+        const tr=getInvoiceTransitionRate(new Date());
+        return `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;line-height:1.7">
+          <div style="font-weight:700;color:var(--primary);margin-bottom:4px">📅 現在の期間: ${tr.period}</div>
+          <div style="color:var(--text-light)">${tr.detail}</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text-light)">
+            ・〜2026/9: 2%（仕入税額控除80%）<br>
+            ・2026/10〜2029/9: 5%（仕入税額控除50%）<br>
+            ・2029/10〜: 10%（控除なし）
+          </div>
+        </div>`;
+      })()}
+      <div class="form-group">
+        <label>控除率（%）<span style="font-size:11px;color:var(--text-light);margin-left:8px">${D.config.taxRateAuto!==false?'🔄 自動更新ON':'⚙ 手動設定'}</span></label>
+        <input type="number" value="${D.config.taxDeductionRate}" min="0" max="100" step="0.1" onchange="updateConfig('taxRate',this.value)">
+      </div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:-8px;margin-bottom:8px">※ 手動変更すると自動更新がOFFになります。自動に戻すには下のボタンを押してください。</div>
+      ${D.config.taxRateAuto===false?`<button class="btn btn-outline btn-sm" onclick="D.config.taxRateAuto=true;D.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;save();render()">🔄 自動更新に戻す</button>`:''}
     </div>
     <div class="card settings-section">
       <h3>🔑 PIN設定</h3>
@@ -771,7 +809,7 @@ function unlockMonth(mk){
 function updateConfig(key,val){
   if(key==='roomFee_adam_aden')D.config.roomFees.adam_aden=parseInt(val)||0;
   else if(key==='roomFee_sub')D.config.roomFees.sub=parseInt(val)||0;
-  else if(key==='taxRate')D.config.taxDeductionRate=Math.max(0,Math.min(100,parseFloat(val)||0));
+  else if(key==='taxRate'){D.config.taxDeductionRate=Math.max(0,Math.min(100,parseFloat(val)||0));D.config.taxRateAuto=false;}
   else if(key==='trainerPin')D.config.trainerPin=val;
   else if(key==='masterPin')D.config.masterPin=val;
   save();render();
@@ -941,31 +979,15 @@ function generateInvoice(){
   const nextMonthEnd=new Date(today.getFullYear(),today.getMonth()+2,0);
   const deadlineStr=nextMonthEnd.getFullYear()+'-'+String(nextMonthEnd.getMonth()+1).padStart(2,'0')+'-'+String(nextMonthEnd.getDate()).padStart(2,'0');
 
-  // Build detail rows
-  const adamDetails=calc.details.filter(d=>d.client.type==='adam');
-  const selfDetails=calc.details.filter(d=>d.client.type==='self');
-  let detailRows='';
-  adamDetails.forEach(d=>{
-    const netPrice=(d.client.sessionPrice||0)-d.roomFee;
+  // Build single detail row
+  const detailLabel=parseInt(m)+'月パーソナルトレーニング委託料';
+  let detailRows=`<tr>
+    <td style="border:1px solid #999;padding:10px 12px;text-align:left">${detailLabel}</td>
+    <td style="border:1px solid #999;padding:10px 12px;text-align:center">1</td>
+    <td style="border:1px solid #999;padding:10px 12px;text-align:right">${calc.net.toLocaleString()}</td>
+  </tr>`;
+  for(let i=1;i<5;i++){
     detailRows+=`<tr>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:left">${esc(d.client.name)} セッション（ADAM経由）</td>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:center">${d.count}</td>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:right">${netPrice.toLocaleString()}</td>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:right">${d.reward.toLocaleString()}</td>
-    </tr>`;
-  });
-  selfDetails.forEach(d=>{
-    detailRows+=`<tr>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:left">${esc(d.client.name)} ルーム利用料（自己経由）</td>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:center">${d.count}</td>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:right">${d.roomFee.toLocaleString()}</td>
-      <td style="border:1px solid #999;padding:10px 12px;text-align:right">-${d.cost.toLocaleString()}</td>
-    </tr>`;
-  });
-  const filledRows=adamDetails.length+selfDetails.length;
-  for(let i=filledRows;i<Math.max(5,filledRows);i++){
-    detailRows+=`<tr>
-      <td style="border:1px solid #999;padding:10px 12px">&nbsp;</td>
       <td style="border:1px solid #999;padding:10px 12px">&nbsp;</td>
       <td style="border:1px solid #999;padding:10px 12px">&nbsp;</td>
       <td style="border:1px solid #999;padding:10px 12px">&nbsp;</td>
@@ -1013,14 +1035,10 @@ function generateInvoice(){
     <!-- Summary Table -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:0;font:${S.font}">
       <tr>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 14px;font-weight:700;text-align:center;width:33%">小計</td>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 14px;font-weight:700;text-align:center;width:33%">免税事業者控除（${D.config.taxDeductionRate}%）</td>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 14px;font-weight:700;text-align:center;width:34%">請求金額</td>
+        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 14px;font-weight:700;text-align:center">請求金額</td>
       </tr>
       <tr>
-        <td style="border:1px solid #999;padding:12px 14px;text-align:right">${calc.gross.toLocaleString()}円</td>
-        <td style="border:1px solid #999;padding:12px 14px;text-align:right">-${calc.taxDeduction.toLocaleString()}円</td>
-        <td style="border:1px solid #999;padding:12px 14px;text-align:right;font-size:20px;font-weight:800">${calc.net.toLocaleString()}円</td>
+        <td style="border:1px solid #999;padding:14px;text-align:right;font-size:22px;font-weight:800">${calc.net.toLocaleString()}円</td>
       </tr>
     </table>
 
@@ -1037,30 +1055,12 @@ function generateInvoice(){
     <!-- Detail Table -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font:${S.font}">
       <tr>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:48%">摘要</td>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:12%">数量</td>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:18%">単価</td>
-        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:22%">明細金額</td>
+        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:55%">摘要</td>
+        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:15%">数量</td>
+        <td style="background:#222;color:#fff;border:1px solid #222;padding:8px 12px;font-weight:700;text-align:center;width:30%">金額</td>
       </tr>
       ${detailRows}
     </table>
-
-    <!-- Tax Breakdown (right-aligned) -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px"><tr>
-      <td style="width:55%"></td>
-      <td>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #999;font:${S.fontSm}">
-          <tr>
-            <td style="padding:6px 12px;background:#f5f5f0;font-weight:700;border-right:1px solid #999;border-bottom:1px solid #999;width:55%">内訳　小計</td>
-            <td style="padding:6px 12px;text-align:right;border-bottom:1px solid #999">${calc.gross.toLocaleString()}円</td>
-          </tr>
-          <tr>
-            <td style="padding:5px 12px;background:#f5f5f0;color:#555;border-right:1px solid #999;font-size:11px">　免税事業者控除</td>
-            <td style="padding:5px 12px;text-align:right;color:#555;font-size:11px">-${calc.taxDeduction.toLocaleString()}円</td>
-          </tr>
-        </table>
-      </td>
-    </tr></table>
 
     <!-- Remarks -->
     <div style="border:1px solid #999;padding:10px 14px;min-height:50px;font:${S.fontSm};color:#555">
