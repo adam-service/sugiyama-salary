@@ -262,15 +262,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--text-light);margi
 /* ===== Storage ===== */
 const SK='sugiyama_salary_v1';
 const API_URL_KEY='sugiyama_api_url';
-const CURRENT_DEFAULT_URL='https://script.google.com/macros/s/AKfycbz5GMbM148Lj74oR_3uB9dy1Ufru3y4WQ3n5YecX_TkNZfoa_L0pxFpxKkReDOh7AHI/exec';
-/* 旧URLがlocalStorageに残っている場合は自動で新URLに移行 */
-(function(){
-  const old=localStorage.getItem(API_URL_KEY);
-  if(old&&old!==CURRENT_DEFAULT_URL&&old.includes('AKfycbyW4yAFJih16nFgjVcVzM8K8iLrtbJMQFyqZFhsQvVGf')){
-    localStorage.setItem(API_URL_KEY,CURRENT_DEFAULT_URL);
-  }
-})();
-let API_URL=localStorage.getItem(API_URL_KEY)||CURRENT_DEFAULT_URL;
+let API_URL=localStorage.getItem(API_URL_KEY)||'https://script.google.com/macros/s/AKfycbyW4yAFJih16nFgjVcVzM8K8iLrtbJMQFyqZFhsQvVGf-2Xhbn9Qvd8KBtSZL5WjXuO/exec';
 let saveTimer=null;
 const SAVE_DELAY=1500;
 
@@ -414,6 +406,10 @@ async function syncFromCloud(){
     const cloudHasClients=data.clients&&data.clients.length>0;
     const localHasClients=D.clients&&D.clients.length>0;
     if(cloudHasClients){
+      // 旧GASコードがspecialAllowancesを保存しない場合に備え、ローカルのデータを保護
+      if(D.specialAllowances&&Object.keys(D.specialAllowances).length>0&&(!data.specialAllowances||Object.keys(data.specialAllowances).length===0)){
+        data.specialAllowances=D.specialAllowances;
+      }
       D=data;saveLocal();render();alert('最新データを取得しました');
     }else if(localHasClients){
       alert('クラウドにゲストデータがありません。ローカルデータを維持し、クラウドへ保存します。');
