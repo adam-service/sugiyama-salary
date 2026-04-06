@@ -564,14 +564,15 @@ function calcMonth(mk){
     }
   });
   const gross=totalReward-totalCost;
-  // Use month-specific rate if auto, otherwise use manual setting
-  const effectiveRate=D.config.taxRateAuto!==false?getInvoiceTransitionRate(mk).rate:D.config.taxDeductionRate;
-  const taxDeduction=gross>0?Math.floor(gross*effectiveRate/100):0;
   const sa=D.specialAllowances&&D.specialAllowances[mk]?D.specialAllowances[mk]:{amount:0,memo:''};
   const specialAmount=sa.amount||0;
   const specialMemo=sa.memo||'';
-  const net=gross-taxDeduction+specialAmount;
-  return{totalReward,totalCost,totalSessions,activeClients,gross,taxDeduction,taxRate:effectiveRate,specialAmount,specialMemo,net,details};
+  const subtotal=gross+specialAmount; // 特例手当込みの小計
+  // Use month-specific rate if auto, otherwise use manual setting
+  const effectiveRate=D.config.taxRateAuto!==false?getInvoiceTransitionRate(mk).rate:D.config.taxDeductionRate;
+  const taxDeduction=subtotal>0?Math.floor(subtotal*effectiveRate/100):0;
+  const net=subtotal-taxDeduction;
+  return{totalReward,totalCost,totalSessions,activeClients,gross,taxDeduction,taxRate:effectiveRate,specialAmount,specialMemo,subtotal,net,details};
 }
 
 /* ===== Render ===== */
@@ -597,9 +598,9 @@ function renderInput(){
       <div class="summary-item"><div class="label">② 自己経由 ルーム料</div><div class="value negative">¥${calc.totalCost.toLocaleString()}</div></div>
       <div class="summary-item"><div class="label">セッション数</div><div class="value">${calc.totalSessions}回</div></div>
       <div class="summary-item"><div class="label">対応ゲスト</div><div class="value">${calc.activeClients}名</div></div>
-      ${calc.taxRate>0?`<div class="summary-item wide"><div class="label">免税事業者控除（${calc.taxRate}%）</div><div class="value negative">-¥${calc.taxDeduction.toLocaleString()}</div></div>`:''}
       ${calc.specialAmount?`<div class="summary-item wide"><div class="label">特例手当${calc.specialMemo?' — '+esc(calc.specialMemo):''}</div><div class="value positive">+¥${calc.specialAmount.toLocaleString()}</div></div>`:''}
-      <div class="summary-item wide highlight"><div class="label">最終報酬額${calc.specialAmount?' （特例手当込み）':''}</div><div class="value" style="font-size:24px">¥${calc.net.toLocaleString()}</div></div>
+      ${calc.taxRate>0?`<div class="summary-item wide"><div class="label">免税事業者控除（${calc.taxRate}%）${calc.specialAmount?' ※特例手当込み':''}</div><div class="value negative">-¥${calc.taxDeduction.toLocaleString()}</div></div>`:''}
+      <div class="summary-item wide highlight"><div class="label">最終報酬額（税控除後）</div><div class="value" style="font-size:24px">¥${calc.net.toLocaleString()}</div></div>
     </div>`;
 
   const cl=document.getElementById('clientList');
@@ -714,7 +715,6 @@ function renderReport(){
     <div class="info-row"><span class="label">① ADAM経由 報酬</span><span class="val" style="color:var(--green)">¥${calc.totalReward.toLocaleString()}</span></div>
     <div class="info-row"><span class="label">② 自己経由 ルーム料</span><span class="val" style="color:var(--red)">-¥${calc.totalCost.toLocaleString()}</span></div>
     <div class="info-row"><span class="label">差引小計</span><span class="val">¥${calc.gross.toLocaleString()}</span></div>
-    ${calc.taxRate>0?`<div class="info-row"><span class="label">免税事業者控除（${calc.taxRate}%）</span><span class="val" style="color:var(--red)">-¥${calc.taxDeduction.toLocaleString()}</span></div>`:''}
     ${mk>='2026-01'&&mk<='2026-03'?`<div style="margin:12px 0;padding:10px 12px;background:var(--bg);border-radius:8px;border-left:3px solid var(--accent)">
       <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">🎁 特例手当（2026年1〜3月）</div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -728,7 +728,8 @@ function renderReport(){
       </div>
     </div>`:''}
     ${calc.specialAmount?`<div class="info-row"><span class="label">特例手当${calc.specialMemo?' — '+esc(calc.specialMemo):''}</span><span class="val" style="color:var(--green)">+¥${calc.specialAmount.toLocaleString()}</span></div>`:''}
-    <div class="info-row" style="padding:12px 0;font-size:16px"><span class="label" style="font-size:14px;font-weight:700">最終報酬額${calc.specialAmount?' （特例手当込み）':''}</span><span class="val" style="font-size:20px;color:var(--primary)">¥${calc.net.toLocaleString()}</span></div>
+    ${calc.taxRate>0?`<div class="info-row"><span class="label">免税事業者控除（${calc.taxRate}%）${calc.specialAmount?' ※特例手当込み':''}</span><span class="val" style="color:var(--red)">-¥${calc.taxDeduction.toLocaleString()}</span></div>`:''}
+    <div class="info-row" style="padding:12px 0;font-size:16px"><span class="label" style="font-size:14px;font-weight:700">最終報酬額（税控除後）</span><span class="val" style="font-size:20px;color:var(--primary)">¥${calc.net.toLocaleString()}</span></div>
   </div></div>`;
 
   // 請求書ボタン（確定済み月のみ）
