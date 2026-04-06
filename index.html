@@ -269,22 +269,23 @@ const SAVE_DELAY=1500;
 /* ===== インボイス制度 経過措置 自動判定 ===== */
 function getInvoiceTransitionRate(dateOrMk){
   // dateOrMk: Date object or 'YYYY-MM' string
+  // 免税事業者への支払いは税込扱い。消費税相当額 = 支払額 × 10/110
+  // 控除不可額 = 消費税相当額 × 控除不可割合(ratio)
   let d;
   if(typeof dateOrMk==='string'){const[y,m]=dateOrMk.split('-');d=new Date(parseInt(y),parseInt(m)-1,1)}
   else{d=dateOrMk||new Date()}
   const p1end=new Date(2026,8,30); // 2026-09-30: 第1期間終了
   const p2end=new Date(2029,8,30); // 2029-09-30: 第2期間終了
-  if(d<=p1end)return{rate:2,period:'経過措置 第1期間（〜2026/9）',detail:'仕入税額控除80% → 負担20% × 消費税10% = 2%'};
-  if(d<=p2end)return{rate:5,period:'経過措置 第2期間（2026/10〜2029/9）',detail:'仕入税額控除50% → 負担50% × 消費税10% = 5%'};
-  return{rate:10,period:'経過措置終了（2029/10〜）',detail:'仕入税額控除0% → 負担100% × 消費税10% ≒ 10%'};
+  if(d<=p1end)return{ratio:0.2,label:'控除不可20%',period:'経過措置 第1期間（〜2026/9）',detail:'仕入税額控除80% → 控除不可20% → 税込額×10/110×20%'};
+  if(d<=p2end)return{ratio:0.5,label:'控除不可50%',period:'経過措置 第2期間（2026/10〜2029/9）',detail:'仕入税額控除50% → 控除不可50% → 税込額×10/110×50%'};
+  return{ratio:1.0,label:'控除不可100%',period:'経過措置終了（2029/10〜）',detail:'仕入税額控除0% → 控除不可100% → 税込額×10/110×100%'};
 }
 
 function defaultData(){
-  const tr=getInvoiceTransitionRate(new Date());
   return{
   config:{masterPin:'0000',trainerPin:'0000',trainerName:'杉山',
     roomFees:{adam_aden:8000,sub:5000},
-    taxDeductionRate:tr.rate,taxRateAuto:true},
+    taxDeductionRate:2,taxRateAuto:true},
   clients:[],
   sessions:{},
   lockedMonths:{},
@@ -298,11 +299,10 @@ function migrateData(d){
   if(d.config.masterPin!=null)d.config.masterPin=String(d.config.masterPin).padStart(4,'0');
   if(d.config.trainerPin!=null)d.config.trainerPin=String(d.config.trainerPin).padStart(4,'0');
   if(!d.config.roomFees)d.config.roomFees={adam_aden:8000,sub:5000};
-  if(d.config.taxDeductionRate===undefined)d.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;
-  // Auto-update rate if taxRateAuto is enabled (or not set = legacy)
+  if(d.config.taxDeductionRate===undefined)d.config.taxDeductionRate=2;
+  // Auto mode flag
   if(d.config.taxRateAuto!==false){
     d.config.taxRateAuto=true;
-    d.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;
   }
   if(!d.lockedMonths)d.lockedMonths={};
   if(!d.specialAllowances)d.specialAllowances={};
@@ -568,11 +568,20 @@ function calcMonth(mk){
   const specialAmount=sa.amount||0;
   const specialMemo=sa.memo||'';
   const subtotal=gross+specialAmount; // 特例手当込みの小計
-  // Use month-specific rate if auto, otherwise use manual setting
-  const effectiveRate=D.config.taxRateAuto!==false?getInvoiceTransitionRate(mk).rate:D.config.taxDeductionRate;
-  const taxDeduction=subtotal>0?Math.floor(subtotal*effectiveRate/100):0;
+  // 免税事業者控除: 税込額×10/110×控除不可割合（自動） or 手動%
+  let taxDeduction=0,taxLabel='';
+  if(subtotal>0){
+    if(D.config.taxRateAuto!==false){
+      const tr=getInvoiceTransitionRate(mk);
+      taxDeduction=Math.floor(subtotal*10/110*tr.ratio);
+      taxLabel=tr.label;
+    }else{
+      taxDeduction=Math.floor(subtotal*D.config.taxDeductionRate/100);
+      taxLabel=D.config.taxDeductionRate+'%';
+    }
+  }
   const net=subtotal-taxDeduction;
-  return{totalReward,totalCost,totalSessions,activeClients,gross,taxDeduction,taxRate:effectiveRate,specialAmount,specialMemo,subtotal,net,details};
+  return{totalReward,totalCost,totalSessions,activeClients,gross,taxDeduction,taxLabel,specialAmount,specialMemo,subtotal,net,details};
 }
 
 /* ===== Render ===== */
@@ -599,7 +608,7 @@ function renderInput(){
       <div class="summary-item"><div class="label">セッション数</div><div class="value">${calc.totalSessions}回</div></div>
       <div class="summary-item"><div class="label">対応ゲスト</div><div class="value">${calc.activeClients}名</div></div>
       ${calc.specialAmount?`<div class="summary-item wide"><div class="label">特例手当${calc.specialMemo?' — '+esc(calc.specialMemo):''}</div><div class="value positive">+¥${calc.specialAmount.toLocaleString()}</div></div>`:''}
-      ${calc.taxRate>0?`<div class="summary-item wide"><div class="label">免税事業者控除（${calc.taxRate}%）${calc.specialAmount?' ※特例手当込み':''}</div><div class="value negative">-¥${calc.taxDeduction.toLocaleString()}</div></div>`:''}
+      ${calc.taxDeduction>0?`<div class="summary-item wide"><div class="label">免税事業者控除（${calc.taxLabel}）${calc.specialAmount?' ※特例手当込み':''}</div><div class="value negative">-¥${calc.taxDeduction.toLocaleString()}</div></div>`:''}
       <div class="summary-item wide highlight"><div class="label">最終報酬額（税控除後）</div><div class="value" style="font-size:24px">¥${calc.net.toLocaleString()}</div></div>
     </div>`;
 
@@ -728,7 +737,7 @@ function renderReport(){
       </div>
     </div>`:''}
     ${calc.specialAmount?`<div class="info-row"><span class="label">特例手当${calc.specialMemo?' — '+esc(calc.specialMemo):''}</span><span class="val" style="color:var(--green)">+¥${calc.specialAmount.toLocaleString()}</span></div>`:''}
-    ${calc.taxRate>0?`<div class="info-row"><span class="label">免税事業者控除（${calc.taxRate}%）${calc.specialAmount?' ※特例手当込み':''}</span><span class="val" style="color:var(--red)">-¥${calc.taxDeduction.toLocaleString()}</span></div>`:''}
+    ${calc.taxDeduction>0?`<div class="info-row"><span class="label">免税事業者控除（${calc.taxLabel}）${calc.specialAmount?' ※特例手当込み':''}</span><span class="val" style="color:var(--red)">-¥${calc.taxDeduction.toLocaleString()}</span></div>`:''}
     <div class="info-row" style="padding:12px 0;font-size:16px"><span class="label" style="font-size:14px;font-weight:700">最終報酬額（税控除後）</span><span class="val" style="font-size:20px;color:var(--primary)">¥${calc.net.toLocaleString()}</span></div>
   </div></div>`;
 
@@ -780,18 +789,19 @@ function renderSettings(){
           <div style="font-weight:700;color:var(--primary);margin-bottom:4px">📅 現在の期間: ${tr.period}</div>
           <div style="color:var(--text-light)">${tr.detail}</div>
           <div style="margin-top:6px;font-size:11px;color:var(--text-light)">
-            ・〜2026/9: 2%（仕入税額控除80%）<br>
-            ・2026/10〜2029/9: 5%（仕入税額控除50%）<br>
-            ・2029/10〜: 10%（控除なし）
+            計算式: 税込額 × 10/110 × 控除不可割合<br>
+            ・〜2026/9: ×10/110×20%≈1.82%（仕入税額控除80%）<br>
+            ・2026/10〜2029/9: ×10/110×50%≈4.55%（仕入税額控除50%）<br>
+            ・2029/10〜: ×10/110×100%≈9.09%（控除なし）
           </div>
         </div>`;
       })()}
-      <div class="form-group">
-        <label>控除率（%）<span style="font-size:11px;color:var(--text-light);margin-left:8px">${D.config.taxRateAuto!==false?'🔄 自動更新ON':'⚙ 手動設定'}</span></label>
+      ${D.config.taxRateAuto===false?`<div class="form-group">
+        <label>手動控除率（%）<span style="font-size:11px;color:var(--text-light);margin-left:8px">⚙ 手動設定中 — 税込額×この%で計算</span></label>
         <input type="number" value="${D.config.taxDeductionRate}" min="0" max="100" step="0.1" onchange="updateConfig('taxRate',this.value)">
       </div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:-8px;margin-bottom:8px">※ 手動変更すると自動更新がOFFになります。自動に戻すには下のボタンを押してください。</div>
-      ${D.config.taxRateAuto===false?`<button class="btn btn-outline btn-sm" onclick="D.config.taxRateAuto=true;D.config.taxDeductionRate=getInvoiceTransitionRate(new Date()).rate;save();render()">🔄 自動更新に戻す</button>`:''}
+      <div style="font-size:11px;color:var(--text-light);margin-top:-8px;margin-bottom:8px">※ 自動に戻すと正しい計算式（税込額×10/110×控除不可割合）に復帰します。</div>
+      <button class="btn btn-outline btn-sm" onclick="D.config.taxRateAuto=true;save();render()">🔄 自動更新に戻す</button>`:`<div style="font-size:12px;color:var(--green);margin-bottom:8px">🔄 自動計算ON — 税込額×10/110×控除不可割合で算出</div>`}
     </div>
     <div class="card settings-section">
       <h3>🔑 PIN設定</h3>
